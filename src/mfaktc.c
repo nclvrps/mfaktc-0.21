@@ -98,7 +98,7 @@ of exponents this isn't used here for now. */
 }
 
 
-int class_needed(unsigned int exp, unsigned long long int k_min, int c)
+int class_needed(unsigned int exp, int c)
 {
 /*
 checks whether the class c must be processed or can be ignored at all because
@@ -106,18 +106,22 @@ all factor candidates within the class c are a multiple of 3, 5, 7 or 11 (11
 only if MORE_CLASSES is definied) or are 3 or 5 mod 8 (Mersenne) or are 5 or 7 mod 8 (Wagstaff)
 
 k_min *MUST* be aligned in that way that k_min is in class 0!
+
+In this variant, k_min is no longer an argument to this function.
+For this to work, k_min must be a multiple of 8, namely 0 mod 8*3*5*7*(11)
+and not merely a multiple of 4, namely 0 mod 4*3*5*7*(11), as before
 */
 #ifdef WAGSTAFF
-  if  ((2 * (exp %  8) * ((k_min + c) %  8)) %  8 !=  6)
+  if  ((2 * (exp %  8) * (c %  8)) %  8 !=  6)
 #else /* Mersennes */
-  if  ((2 * (exp %  8) * ((k_min + c) %  8)) %  8 !=  2)
+  if  ((2 * (exp %  8) * (c %  8)) %  8 !=  2)
 #endif
-  if( ((2 * (exp %  8) * ((k_min + c) %  8)) %  8 !=  4) && \
-      ((2 * (exp %  3) * ((k_min + c) %  3)) %  3 !=  2) && \
-      ((2 * (exp %  5) * ((k_min + c) %  5)) %  5 !=  4) && \
-      ((2 * (exp %  7) * ((k_min + c) %  7)) %  7 !=  6))
+  if( ((2 * (exp %  8) * (c %  8)) %  8 !=  4) && \
+      ((2 * (exp %  3) * (c %  3)) %  3 !=  2) && \
+      ((2 * (exp %  5) * (c %  5)) %  5 !=  4) && \
+      ((2 * (exp %  7) * (c %  7)) %  7 !=  6))
 #ifdef MORE_CLASSES        
-  if  ((2 * (exp % 11) * ((k_min + c) % 11)) % 11 != 10 )
+  if  ((2 * (exp % 11) * (c % 11)) % 11 != 10 )
 #endif
   {
     return 1;
@@ -200,7 +204,10 @@ other return value
     if((tmp >= k_hint) && ((tmp < k_max) || (k_max < k_min))) k_max = tmp; /* check for k_max < k_min enables some selftests where k_max >= 2^64 but the known factor itself has a k < 2^64 */
   }
 
-  k_min -= k_min % NUM_CLASSES;	/* k_min is now 0 mod NUM_CLASSES */
+  /* k_min is now 0 mod NUM_CLASSES.
+   * Multiply NUM_CLASSES by 2 to make k_min a multiple of 8 instead of merely a multiple of 4.
+   * This allows us to eliminate k_min as an argument to the function class_needed() */
+  k_min -= k_min % (2 * NUM_CLASSES);
 
   if(mystuff->mode != MODE_SELFTEST_SHORT && (mystuff->verbosity >= 2 || (mystuff->mode == MODE_NORMAL && mystuff->verbosity >= 1)))
   {
@@ -294,7 +301,7 @@ see benchmarks in src/kernel_benchmarks.txt */
 /* calculate the number of classes which are allready processed. This value is needed to estimate ETA */
       for(i = 0; i < cur_class; i++)
       {
-        if(class_needed(mystuff->exponent, k_min, i))mystuff->stats.class_counter++;
+        if(class_needed(mystuff->exponent, i))mystuff->stats.class_counter++;
       }
       restart = mystuff->stats.class_counter;
     }
@@ -311,7 +318,7 @@ see benchmarks in src/kernel_benchmarks.txt */
 
   for(; cur_class <= max_class; cur_class++)
   {
-    if(class_needed(mystuff->exponent, k_min, cur_class))
+    if(class_needed(mystuff->exponent, cur_class))
     {
       mystuff->stats.class_number = cur_class;
       if(mystuff->quit)
